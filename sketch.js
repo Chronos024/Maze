@@ -1,103 +1,130 @@
-function Cell(i,j) {
-	this.i = i;
-	this.j = j;
-	this.walls = [true,true,true,true];
-	this.visited = false;
-	this.csolved = false;
-	this.blocked = false;
-	this.endPoint = false;
-	
-	this.highlight = function(type){
-		var x = this.i*w;
-		var y = this.j*w;
-		noStroke();
-		if(type == 'make'){
-			fill(0,0,255);
-		}
-		else if(type == 'solve'){
-			fill(0,255,0,100);
-		}
-		else if(type == 'blocked'){
-			fill(255,0,0,100);
-		}
-		rect(x,y,w,w);		
-	}
-	
-	this.checkNeighbors = function(type){
-		var neighbors = [];
-		var top = grid[index(i, j-1)];
-		var bottom = grid[index(i, j+1)];
-		var right = grid[index(i+1, j)];
-		var left = grid[index(i-1, j)];
-		if(type == 'make'){
-			if(top && !top.visited){
-				neighbors.push(top);
-			}
-			if(bottom && !bottom.visited){
-				neighbors.push(bottom);
-			}
-			if(right && !right.visited){
-				neighbors.push(right);
-			}
-			if(left && !left.visited){
-				neighbors.push(left);
-			}
-			
-			if(neighbors.length > 0){
-				var r = floor(random(0, neighbors.length));
-				return neighbors[r];
-			}
-			else{
-				return undefined;
-			}
-		}
-		else if(type == 'solve'){
-			if(left && !left.csolved && !left.walls[2]){
-				return left;
-			}
-			else if(bottom && !bottom.csolved && !bottom.walls[0]){
-				return bottom;
-			}			
-			else if(right && !right.csolved && !right.walls[3]){
-				return right;
-			}
-			else if(top && !top.csolved && !top.walls[1]){
-				return top;
-			}
-			else{
-				return undefined;
-			}
+var cols, rows;
+var w = 25;
+var done = false;
+var grid = [];
+var stack = [];
+var solved = false;
+var popping;
+
+var solveStack = [];
+var ePoint;
+
+var current;
+
+function setup() {
+	//frameRate(2);
+	createCanvas(1250, 1250);
+	cols = floor(width / w);
+	rows = floor(height / w);
+
+	for (var j = 0; j < rows; j++) {
+		for (var i = 0; i < cols; i++) {
+			var cell = new Cell(i, j);
+			grid.push(cell);
 		}
 	}
-	
-	this.show = function() {
-		var x = this.i*w;
-		var y = this.j*w;
-		stroke(255);
-		noFill();
-		if(this.walls[0]){
-			line(x    , y, x + w    , y); //top
+	var geLen = grid.length-1;
+	ePoint = grid[geLen];
+	ePoint.endPoint = true;
+	current = grid[0];
+}
+
+function draw() {
+	var next;
+	background(51);
+	for (var i = 0; i < grid.length; i++) {
+		grid[i].show();
+	}
+
+	//STEP 1
+	if (!done) {
+		current.visited = true;
+		current.highlight('make');
+		next = current.checkNeighbors('make');
+		if (next) {
+			next.visited = true;
+
+			//STEP2
+			stack.push(current);
+
+			//STEP 3
+			removeWalls(current, next);
+			// STEP 4
+			current = next;
+		} else if (stack.length > 0) {
+			popping = true;
+			while(popping){
+					current = stack.pop();
+						if(current === grid[0] || current.checkNeighbors('make')){
+							popping = false;
+						}
+				}
+		} else {
+			done = true;
+
+			current = grid[0];
 		}
-		if(this.walls[1]){
-			line(x    , y + w, x + w, y + w); //bottom
-		}
-		if(this.walls[2]){
-			line(x + w, y, x + w, y + w); // right
-		}
-		if(this.walls[3]){
-			line(x    , y, x    , y + w); // left
-		}
-		if(this.visited){
-			noStroke();
-			fill(255,0,255,100);
-			if(this.solved){
-				fill(0,255,0,100);
+	} else {
+		if (!solved) {
+			current.csolved = true;
+			current.highlight('solve');
+			next = current.checkNeighbors('solve');
+			if (next) {
+				
+				//STEP2
+				solveStack.push(current);
+				if (next.endPoint) {
+					solved = true;
+					console.log("THIS IS THE END");
+					next.highlight('end');
+				}else{
+					current = next;
+				}
+			} else if (solveStack.length > 0) {
+				current.blocked = true;
+				current = solveStack.pop();
 			}
-			if(this.blocked){
-				fill(255,0,0,100);
+		} else {
+			for (var j = 0; j < grid.length; j++) {
+				if (grid[j].csolved === true && grid[j].blocked === false) {
+					grid[j].highlight('solve');
+				}
+				else if (grid[j].csolved === false) {
+					grid[j].highlight('blocked');
+				}
 			}
-			
-			rect(x,y,w,w);
+			noLoop();
 		}
+	}
+}
+
+function index(i, j){
+	if(i < 0 || j < 0 || i > cols-1 || j > rows-1) {
+		return -1;
+	}
+	return i + j * cols;
+}
+
+function removeWalls(a, b) {
+	var x = a.i - b.i;
+	if (x === 1) {
+		a.walls[3] = false;
+		b.walls[2] = false;
+	} else if (x === -1) {
+		a.walls[2] = false;
+		b.walls[3] = false;
+	}
+	var y = a.j - b.j;
+	if (y === 1) {
+		a.walls[0] = false;
+		b.walls[1] = false;
+	} else if (y === -1) {
+		a.walls[1] = false;
+		b.walls[0] = false;
+	}
+	if (a.walls == b.walls) {
+		counter++;
+	} else {
+		counter = 0;
 	}
 }
